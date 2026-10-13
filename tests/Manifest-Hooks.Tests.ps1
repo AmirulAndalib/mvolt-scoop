@@ -21,7 +21,9 @@ BeforeAll {
     $script:newExe = Join-Path $newDir 'mVolt+.exe'
     Invoke-WebRequest -Uri $head.architecture.'64bit'.url -OutFile $newExe -UseBasicParsing
     $script:newHash = (Get-FileHash -LiteralPath $newExe -Algorithm SHA256).Hash
-    $script:oldExe = Join-Path $work 'old.exe'
+    $script:oldDir = Join-Path $work 'old'
+    New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
+    $script:oldExe = Join-Path $oldDir 'mVolt+.exe'
     Invoke-WebRequest -Uri 'https://github.com/AmirulAndalib/mvolt-scoop/releases/download/v0.47.3/mVolt+.exe' -OutFile $oldExe -UseBasicParsing
 
     function script:warn($msg) { Write-Host "WARN  $msg" }
@@ -36,11 +38,11 @@ BeforeAll {
         return $copy
     }
 
-    function script:Invoke-Hook([string]$Code, [string]$Version, [switch]$AsAdmin, [switch]$NoAdmin, [string]$ManifestHash) {
+    function script:Invoke-Hook([string]$Code, [string]$Version, [switch]$AsAdmin, [switch]$NoAdmin, [string]$ManifestHash, [string]$SourceDir) {
         if ($AsAdmin) { $Code = $Code -replace '\$isAdmin = .*', '$isAdmin = $true' }
         # Never raise a real UAC prompt from a test: take the non-interactive branch instead.
         if ($NoAdmin) { $Code = ($Code -replace '\$isAdmin = .*', '$isAdmin = $false').Replace('-not [Environment]::UserInteractive', '$true') }
-        $dir = $newDir
+        $dir = if ($SourceDir) { $SourceDir } else { $newDir }
         $version = $Version
         # Scoop runs hooks inside install_app, where the parsed manifest is in scope as $manifest.
         $manifest = [pscustomobject]@{ architecture = [pscustomobject]@{ '64bit' = [pscustomobject]@{ hash = $(if ($ManifestHash) { $ManifestHash } else { $newHash.ToLower() }) } } }
@@ -104,8 +106,14 @@ Describe 'Start with Windows handling in <_>' -ForEach $apps {
 
     It 'never downgrades the copy when an older version is installed' {
         $copy = New-FakeProgramFiles $newExe
-        Invoke-Hook $post '0.47.3' -AsAdmin | Should -BeNullOrEmpty
+        Invoke-Hook $post '0.47.3' -AsAdmin -SourceDir $oldDir -ManifestHash (Get-FileHash -LiteralPath $oldExe).Hash | Should -BeNullOrEmpty
         (Get-FileHash -LiteralPath $copy).Hash | Should -Be $newHash
+    }
+
+    It 'goes by the version inside the exe, not the manifest version' {
+        New-FakeProgramFiles $newExe | Out-Null
+        # A manifest version newer than the exe it ships must not even ask for elevation.
+        Invoke-Hook $post '9.9.9' -NoAdmin | Should -BeNullOrEmpty
     }
 
     It 'stays silent when Start with Windows was never used' {

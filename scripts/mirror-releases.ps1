@@ -6,8 +6,10 @@
     Backup copy in case upstream releases disappear. The 'mvolt' Scoop app installs from the
     official upstream URL; the 'mvolt-mirror' app installs from these mirrored releases.
 
-    Every published upstream release is mirrored, prereleases included (they stay marked as
-    prereleases here). Drafts are never visible through the API and are never mirrored.
+    Every published upstream release is mirrored, prereleases included. The prerelease
+    flag and the "latest" release are kept in step with upstream. Drafts are never
+    visible through the API and are never mirrored. If upstream disappears, the run
+    warns and keeps everything already mirrored.
 
     For each release the script makes sure the mirror has:
       - mVolt+.exe, byte for byte, verified against GitHub's SHA256 digest for the upstream
@@ -16,11 +18,14 @@
         (README, user guide and screenshots for that version);
       - the upstream release notes, with the SHA256 of both files.
 
-    The run is idempotent: existing mirrors are left alone, missing assets are added.
+    The run is idempotent: mirrored files are never replaced, missing assets are added.
     Needs the GitHub CLI (gh) and a token with contents:write on the target repository.
 
 .PARAMETER Repository
     Target repository in owner/name form. Defaults to $env:GITHUB_REPOSITORY.
+
+.PARAMETER Upstream
+    Source repository. Only changed for testing.
 
 .PARAMETER DryRun
     Download and verify, but do not create or change any release.
@@ -28,17 +33,17 @@
 [CmdletBinding()]
 param(
     [string]$Repository = $env:GITHUB_REPOSITORY,
+    [string]$Upstream = 'b00nz/mVolt',
     [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$Upstream = 'b00nz/mVolt'
 $AssetName = 'mVolt+.exe'
 
-if ($Repository -cnotmatch '\A[A-Za-z0-9-]+/[A-Za-z0-9._-]+\z') {
-    throw "Invalid target repository '$Repository'"
+foreach ($name in $Repository, $Upstream) {
+    if ($name -cnotmatch '\A[A-Za-z0-9-]+/[A-Za-z0-9._-]+\z') { throw "Invalid repository name '$name'" }
 }
 
 function Invoke-GhJson {
@@ -63,12 +68,33 @@ function Get-Prop($Object, [string]$Name) {
     return $null
 }
 
+function Write-Notice([string]$Message) {
+    # Shows up as an annotation on the workflow run without failing it.
+    if ($env:GITHUB_ACTIONS) { Write-Host "::warning::$Message" } else { Write-Warning $Message }
+}
+
+# If the upstream repository or its releases are gone, that is exactly the case this mirror
+# exists for. Keep what is here, say so, and do not fail every scheduled run.
+$repoState = & gh api "repos/$Upstream" --jq '.full_name' 2>&1
+if ($LASTEXITCODE -ne 0) {
+    if ("$repoState" -match 'HTTP 404|HTTP 451') {
+        Write-Notice "$Upstream is no longer available ($repoState). Nothing new to mirror; existing mirrored releases are kept."
+        return
+    }
+    throw "Could not reach $Upstream`: $repoState"
+}
+
 $upstreamReleases = @(Get-ReleaseList $Upstream | Where-Object { -not $_.draft } |
         Sort-Object { [datetime]$_.published_at })
-if ($upstreamReleases.Count -eq 0) { throw "No releases found in $Upstream" }
+if ($upstreamReleases.Count -eq 0) {
+    Write-Notice "$Upstream has no published releases. Existing mirrored releases are kept."
+    return
+}
 
 # /releases/latest only ever returns a published, non-prerelease release.
-$latestTag = (Invoke-GhJson @('api', "repos/$Upstream/releases/latest")).tag_name
+$latestTag = $null
+$latestJson = & gh api "repos/$Upstream/releases/latest" --jq '.tag_name' 2>&1
+if ($LASTEXITCODE -eq 0) { $latestTag = "$latestJson".Trim() }
 
 $ours = @{}
 foreach ($r in Get-ReleaseList $Repository) { $ours[$r.tag_name] = $r }
@@ -104,7 +130,19 @@ try {
             $mine = @($existing.assets | Where-Object { $_.name -ceq $AssetName })[0]
             $myDigest = [string](Get-Prop $mine 'digest')
             if ($digest -and $myDigest -and $digest -cne $myDigest) {
-                Write-Warning "$tag upstream asset changed since it was mirrored: upstream $digest, mirror $myDigest. The mirror keeps the original."
+                Write-Notice "$tag upstream asset changed since it was mirrored: upstream $digest, mirror $myDigest. The mirror keeps the original."
+            }
+            # Upstream can promote a prerelease to a release (or the reverse) after publishing.
+            # Keep the flag in step, otherwise mvolt-mirror would never see that version.
+            if ([bool]$existing.prerelease -ne [bool]$rel.prerelease) {
+                $flag = if ($rel.prerelease) { '--prerelease=true' } else { '--prerelease=false' }
+                if ($DryRun) { Write-Host "[dry run] $tag would get $flag" }
+                else {
+                    & gh release edit $tag --repo $Repository $flag
+                    if ($LASTEXITCODE -ne 0) { throw "gh release edit $tag $flag failed with exit code $LASTEXITCODE" }
+                    Write-Host "$tag prerelease flag synced to upstream ($flag)"
+                    $changed++
+                }
             } else {
                 Write-Host "$tag already mirrored"
             }
@@ -193,6 +231,17 @@ try {
 }
 finally {
     Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# The mirror's "latest" release must match upstream's, because mvolt-mirror's checkver reads it.
+if ($latestTag -and -not $DryRun) {
+    $ourLatest = & gh api "repos/$Repository/releases/latest" --jq '.tag_name' 2>$null
+    if ("$ourLatest".Trim() -cne $latestTag) {
+        & gh release edit $latestTag --repo $Repository --latest
+        if ($LASTEXITCODE -ne 0) { throw "Could not mark $latestTag as the latest mirror release" }
+        Write-Host "Marked $latestTag as the latest mirror release (was '$("$ourLatest".Trim())')"
+        $changed++
+    }
 }
 
 Write-Host "Done. Releases created or completed: $changed"
