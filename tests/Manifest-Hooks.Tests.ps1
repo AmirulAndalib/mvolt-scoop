@@ -1,6 +1,6 @@
 # Tests the post_install and pre_uninstall scripts in both manifests.
 # %ProgramFiles% is pointed at a temporary folder, so nothing on the machine is touched.
-# Two real mVolt+ builds are downloaded from upstream: the one in the manifest and v0.47.3,
+# Two real mVolt+ builds are downloaded from this repository's mirror (so the tests keep working if\n# upstream goes away): the one in the manifest and v0.47.3,
 # which plays the stale "Start with Windows" copy.
 
 BeforeDiscovery {
@@ -14,14 +14,14 @@ BeforeAll {
     $script:work = Join-Path ([IO.Path]::GetTempPath()) "mvolt-hook-tests-$PID"
     New-Item -ItemType Directory -Force -Path $work | Out-Null
 
-    $head = Get-Content (Join-Path $bucketDir 'mvolt.json') -Raw | ConvertFrom-Json
+    $head = Get-Content (Join-Path $bucketDir 'mvolt-mirror.json') -Raw | ConvertFrom-Json
     $script:newDir = Join-Path $work 'new'
     New-Item -ItemType Directory -Force -Path $newDir | Out-Null
     $script:newExe = Join-Path $newDir 'mVolt+.exe'
     Invoke-WebRequest -Uri $head.architecture.'64bit'.url -OutFile $newExe -UseBasicParsing
     $script:newHash = (Get-FileHash -LiteralPath $newExe -Algorithm SHA256).Hash
     $script:oldExe = Join-Path $work 'old.exe'
-    Invoke-WebRequest -Uri 'https://github.com/b00nz/mVolt/releases/download/v0.47.3/mVolt+.exe' -OutFile $oldExe -UseBasicParsing
+    Invoke-WebRequest -Uri 'https://github.com/AmirulAndalib/mvolt-scoop/releases/download/v0.47.3/mVolt+.exe' -OutFile $oldExe -UseBasicParsing
 
     function script:warn($msg) { Write-Host "WARN  $msg" }
 
