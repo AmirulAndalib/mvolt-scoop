@@ -28,7 +28,7 @@ There are two packages with the same files. Pick one:
 scoop install mvolt/mvolt-mirror
 ```
 
-Both install the same exe with the same hash, the same `mvolt` command and the same shortcut, so install only one of them. To switch, uninstall one and install the other. Your settings are not affected.
+Both install the same exe with the same hash and the same `mvolt` command, so install only one of them. The Start Menu shortcut is **mVolt+** for `mvolt` and **mVolt+ (mirror)** for `mvolt-mirror`. To switch, uninstall one and install the other. Your settings are not affected.
 
 The package is called `mvolt` because Scoop app names cannot contain `+`. The installed file keeps its original name, `mVolt+.exe`.
 

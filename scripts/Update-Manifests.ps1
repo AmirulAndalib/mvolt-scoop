@@ -93,7 +93,7 @@ $commonNotes = @(
     'If you opened mVolt+ from its Scoop shortcut, exit it from the tray before updating. A copy started by Start with Windows is updated for you after one administrator prompt.'
 )
 
-function New-Manifest($owner, $repo, $description, $extraNotes) {
+function New-Manifest($owner, $repo, $description, $extraNotes, $shortcutName) {
     $current = Get-Content "bucket/$(if ($owner -eq 'b00nz') { 'mvolt' } else { 'mvolt-mirror' }).json" -Raw | ConvertFrom-Json
     $base = "https://github.com/$owner/$repo/releases/download"
     [ordered]@{
@@ -104,7 +104,7 @@ function New-Manifest($owner, $repo, $description, $extraNotes) {
         notes          = @($extraNotes) + $commonNotes
         architecture   = [ordered]@{ '64bit' = [ordered]@{ url = $current.architecture.'64bit'.url; hash = $current.architecture.'64bit'.hash } }
         bin            = @(, @('mVolt+.exe', 'mvolt'))
-        shortcuts      = @(, @('mVolt+.exe', 'mVolt+'))
+        shortcuts      = @(, @('mVolt+.exe', $shortcutName))
         post_install   = $postInstall
         pre_uninstall  = $preUninstall
         checkver       = [ordered]@{ github = "https://github.com/$owner/$repo" }
@@ -119,8 +119,8 @@ function New-Manifest($owner, $repo, $description, $extraNotes) {
 }
 
 $desc = 'NVIDIA GPU tuning and monitoring tool with voltage, clock, power and fan control, V/F curves, live telemetry and saved profiles.'
-$m1 = New-Manifest 'b00nz' 'mVolt' $desc @()
-$m2 = New-Manifest 'AmirulAndalib' 'mvolt-scoop' "Backup mirror of mVolt+, the $desc" @('Same files as ''mvolt'', downloaded from the AmirulAndalib/mvolt-scoop backup mirror instead of the upstream release. Install mvolt or mvolt-mirror, not both.')
+$m1 = New-Manifest 'b00nz' 'mVolt' $desc @() 'mVolt+'
+$m2 = New-Manifest 'AmirulAndalib' 'mvolt-scoop' "Backup mirror of mVolt+, the $desc" @('Same files as ''mvolt'', downloaded from the AmirulAndalib/mvolt-scoop backup mirror instead of the upstream release. Install mvolt or mvolt-mirror, not both.') 'mVolt+ (mirror)'
 $m1 | ConvertTo-Json -Depth 10 | Set-Content bucket/mvolt.json -Encoding utf8NoBOM
 $m2 | ConvertTo-Json -Depth 10 | Set-Content bucket/mvolt-mirror.json -Encoding utf8NoBOM
 & "$env:SCOOP_HOME\bin\formatjson.ps1" -Dir bucket | Out-Null

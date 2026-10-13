@@ -23,7 +23,7 @@
     "shortcuts": [
         [
             "mVolt+.exe",
-            "mVolt+"
+            "mVolt+ (mirror)"
         ]
     ],
     "post_install": [
