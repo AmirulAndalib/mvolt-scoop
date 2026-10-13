@@ -40,7 +40,8 @@ BeforeAll {
         $dir = $newDir
         $version = $Version
         $null = $dir, $version # used by the hook code
-        $out = & { Invoke-Expression $Code } 6>&1 | Out-String
+        # Same way Scoop runs hook scripts (lib/install.ps1, Invoke-HookScript).
+        $out = Invoke-Command ([scriptblock]::Create($Code)) 6>&1 | Out-String
         return ($out -replace '\s+', ' ').Trim()
     }
 }
@@ -53,8 +54,8 @@ AfterAll {
 Describe 'Start with Windows handling in <_>' -ForEach $apps {
     BeforeAll {
         $m = Get-Content (Join-Path $PSScriptRoot "..\bucket\$_.json") -Raw | ConvertFrom-Json
-        $post = $m.post_install -join "`n"
-        $pre = $m.pre_uninstall -join "`n"
+        $post = $m.post_install -join "`r`n"
+        $pre = $m.pre_uninstall -join "`r`n"
         $version = $m.version
     }
 

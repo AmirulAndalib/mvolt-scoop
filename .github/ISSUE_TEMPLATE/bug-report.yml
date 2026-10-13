@@ -101,7 +101,7 @@ body:
     required: true
 - type: textarea
   attributes:
-    label: Additional Softwares
+    label: Additional Software
     description: List any additional software that you are using and may be related to this bug.
   validations:
     required: false

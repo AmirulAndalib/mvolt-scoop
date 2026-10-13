@@ -48,7 +48,7 @@ function Invoke-GhJson {
     return ($out -join "`n") | ConvertFrom-Json -NoEnumerate
 }
 
-function Get-AllReleases([string]$Repo) {
+function Get-ReleaseList([string]$Repo) {
     # --slurp wraps each page (an array) in an outer array; flatten both levels.
     $pages = Invoke-GhJson @('api', '--paginate', '--slurp', "repos/$Repo/releases?per_page=100")
     return @($pages | ForEach-Object { $_ } | ForEach-Object { $_ })
@@ -63,7 +63,7 @@ function Get-Prop($Object, [string]$Name) {
     return $null
 }
 
-$upstreamReleases = @(Get-AllReleases $Upstream | Where-Object { -not $_.draft } |
+$upstreamReleases = @(Get-ReleaseList $Upstream | Where-Object { -not $_.draft } |
         Sort-Object { [datetime]$_.published_at })
 if ($upstreamReleases.Count -eq 0) { throw "No releases found in $Upstream" }
 
@@ -71,7 +71,7 @@ if ($upstreamReleases.Count -eq 0) { throw "No releases found in $Upstream" }
 $latestTag = (Invoke-GhJson @('api', "repos/$Upstream/releases/latest")).tag_name
 
 $ours = @{}
-foreach ($r in Get-AllReleases $Repository) { $ours[$r.tag_name] = $r }
+foreach ($r in Get-ReleaseList $Repository) { $ours[$r.tag_name] = $r }
 
 $work = Join-Path ([IO.Path]::GetTempPath()) "mvolt-mirror-$PID"
 New-Item -ItemType Directory -Force -Path $work | Out-Null
