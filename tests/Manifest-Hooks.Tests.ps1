@@ -102,6 +102,14 @@ Describe 'Start with Windows handling in <_>' -ForEach $apps {
         Invoke-Hook $post $version -AsAdmin | Should -BeNullOrEmpty
     }
 
+    It 'stops update and uninstall while the installed exe is running' {
+        $env:ProgramFiles = Join-Path $work "pf-empty-$([guid]::NewGuid())"
+        # Another open handle without write sharing behaves like a running image.
+        $lock = [IO.File]::Open($newExe, 'Open', 'Read', 'Read')
+        try { { Invoke-Hook $pre $version } | Should -Throw '*still running*' } finally { $lock.Dispose() }
+        { Invoke-Hook $pre $version } | Should -Not -Throw
+    }
+
     It 'warns on uninstall only when a startup copy exists' {
         New-FakeProgramFiles $oldExe | Out-Null
         Invoke-Hook $pre $version | Should -Match 'keeps starting at logon'

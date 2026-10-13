@@ -52,6 +52,15 @@
         "}"
     ],
     "pre_uninstall": [
+        "$exe = Join-Path $dir 'mVolt+.exe'",
+        "$busy = $false",
+        "if (Test-Path -LiteralPath $exe -PathType Leaf) {",
+        "    foreach ($attempt in 1..3) {",
+        "        try { $stream = [IO.File]::Open($exe, 'Open', 'ReadWrite', 'None'); $stream.Dispose(); $busy = $false; break }",
+        "        catch { $hr = if ($_.Exception.InnerException) { $_.Exception.InnerException.HResult } else { $_.Exception.HResult }; $busy = $hr -in @(-2147024864, -2147024863); if (-not $busy) { break }; Start-Sleep -Milliseconds 700 }",
+        "    }",
+        "}",
+        "if ($busy) { throw 'mVolt+ is still running from this Scoop install. It may be running as administrator, which Scoop cannot detect. Exit it from the tray icon, then run the command again.' }",
         "$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
         "if (Test-Path -LiteralPath (Join-Path (Join-Path $env:ProgramFiles 'mVolt+') $sid)) {",
         "    warn 'mVolt+ Start with Windows is set up for this user. It runs its own copy from %ProgramFiles%\\mVolt+ and keeps starting at logon after this uninstall. Turn Start with Windows off in mVolt+ if you no longer want it.'",
