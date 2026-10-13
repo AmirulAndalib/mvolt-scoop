@@ -10,7 +10,8 @@
     output of this script.
 #>
 $ErrorActionPreference = 'Stop'
-Set-Location (Join-Path $PSScriptRoot '..')
+Push-Location (Join-Path $PSScriptRoot '..')
+try {
 if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
 
 # Shared by post_install of both apps. Runs with Scoop's $dir and $version in scope.
@@ -122,6 +123,6 @@ $m2 = New-Manifest 'AmirulAndalib' 'mvolt-scoop' "Backup mirror of mVolt+, the $
 $m1 | ConvertTo-Json -Depth 10 | Set-Content bucket/mvolt.json -Encoding utf8NoBOM
 $m2 | ConvertTo-Json -Depth 10 | Set-Content bucket/mvolt-mirror.json -Encoding utf8NoBOM
 & "$env:SCOOP_HOME\bin\formatjson.ps1" -Dir bucket | Out-Null
-
-
-
+} finally {
+    Pop-Location
+}

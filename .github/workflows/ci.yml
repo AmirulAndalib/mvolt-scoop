@@ -19,6 +19,7 @@ jobs:
     name: Test
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         shell: [powershell, pwsh]
     defaults:
@@ -49,7 +50,7 @@ jobs:
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\my_bucket\scripts\Update-Manifests.ps1
-          git -C my_bucket diff --exit-code -- bucket
+          git -C "$(Convert-Path '.\my_bucket')" diff --exit-code -- bucket
           if ($LASTEXITCODE -ne 0) { throw 'bucket/*.json differ from scripts/Update-Manifests.ps1. Edit the script and run it, do not edit the hook code in the JSON.' }
 
   verify:
