@@ -1,5 +1,5 @@
 {
-    "version": "0.46.1",
+    "version": "0.47.1",
     "description": "NVIDIA GPU tuning and monitoring tool with voltage, clock, power and fan control, V/F curves, live telemetry and saved profiles.",
     "homepage": "https://github.com/b00nz/mVolt",
     "license": "Freeware",
@@ -10,8 +10,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/b00nz/mVolt/releases/download/v0.46.1/mVolt+.exe",
-            "hash": "62d69815434bc52a8df76b44dd54a69df34d66154edaf598b02128273f330416"
+            "url": "https://github.com/b00nz/mVolt/releases/download/v0.47.1/mVolt+.exe",
+            "hash": "76db39916e468bdddf1033d60e2a2c5ce342f2d36b4baf109685c4dd2a8ff8f2"
         }
     },
     "bin": [
