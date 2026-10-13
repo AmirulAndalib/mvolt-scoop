@@ -55,23 +55,34 @@ jobs:
     steps:
       - name: Checkout Bucket
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check URL, hash and binary
+      - name: Check URLs, hashes and binaries
         run: |
           $ErrorActionPreference = 'Stop'
-          $m = Get-Content bucket/mvolt.json -Raw | ConvertFrom-Json
-          $arch = $m.architecture.'64bit'
-          $expectedUrl = "https://github.com/b00nz/mVolt/releases/download/v$($m.version)/mVolt+.exe"
-          if ($arch.url -cne $expectedUrl) { throw "URL '$($arch.url)' does not match '$expectedUrl'" }
-          $file = Join-Path $env:RUNNER_TEMP 'mVolt+.exe'
-          Invoke-WebRequest -Uri $arch.url -OutFile $file -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 5
-          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
-          if ($hash -cne $arch.hash) { throw "Hash mismatch: manifest $($arch.hash), download $hash" }
-          $bytes = [IO.File]::ReadAllBytes($file)
-          $pe = [BitConverter]::ToInt32($bytes, 0x3c)
-          if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw 'Downloaded file is not an x64 PE image' }
-          $fileVersion = (Get-Item $file).VersionInfo.FileVersion
-          if ($fileVersion -ne $m.version) { Write-Warning "Embedded FileVersion '$fileVersion' differs from manifest version '$($m.version)'" }
-          Write-Host "OK: mvolt $($m.version) $hash"
+          $sources = [ordered]@{
+            'mvolt'        = 'https://github.com/b00nz/mVolt/releases/download'
+            'mvolt-mirror' = 'https://github.com/AmirulAndalib/mvolt-scoop/releases/download'
+          }
+          $hashes = @{}
+          foreach ($app in $sources.Keys) {
+            $m = Get-Content "bucket/$app.json" -Raw | ConvertFrom-Json
+            $arch = $m.architecture.'64bit'
+            $expectedUrl = "$($sources[$app])/v$($m.version)/mVolt+.exe"
+            if ($arch.url -cne $expectedUrl) { throw "${app}: URL '$($arch.url)' does not match '$expectedUrl'" }
+            $file = Join-Path $env:RUNNER_TEMP "$app.exe"
+            Invoke-WebRequest -Uri $arch.url -OutFile $file -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 5
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+            if ($hash -cne $arch.hash) { throw "${app}: hash mismatch, manifest $($arch.hash), download $hash" }
+            $bytes = [IO.File]::ReadAllBytes($file)
+            $pe = [BitConverter]::ToInt32($bytes, 0x3c)
+            if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw "${app}: download is not an x64 PE image" }
+            $fileVersion = (Get-Item $file).VersionInfo.FileVersion
+            if ($fileVersion -ne $m.version) { Write-Warning "${app}: embedded FileVersion '$fileVersion' differs from manifest version '$($m.version)'" }
+            $hashes[$app] = "$($m.version) $hash"
+            Write-Host "OK: $app $($m.version) $hash"
+          }
+          if ($hashes['mvolt'] -ne $hashes['mvolt-mirror']) {
+            Write-Warning "mvolt ($($hashes['mvolt'])) and mvolt-mirror ($($hashes['mvolt-mirror'])) differ. The mirror may still be catching up."
+          }
       - name: Check latest stable release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

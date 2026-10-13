@@ -5,7 +5,7 @@
     "license": "Freeware",
     "notes": [
         "Tuning needs administrator rights. Profiles and settings live in %LOCALAPPDATA%\\mVolt+ and are kept on update and uninstall.",
-        "Exit mVolt+ from the tray before running 'scoop update mvolt'.",
+        "Exit mVolt+ from the tray before running 'scoop update'.",
         "If you use Start with Windows, mVolt+ runs its own copy from %ProgramFiles%\\mVolt+. Open mVolt+ as administrator once after each update to refresh it, and turn the option off before uninstalling."
     ],
     "architecture": {
@@ -34,6 +34,10 @@
             "64bit": {
                 "url": "https://github.com/b00nz/mVolt/releases/download/v$version/mVolt+.exe"
             }
+        },
+        "hash": {
+            "url": "https://api.github.com/repos/b00nz/mVolt/releases/tags/v$version",
+            "jsonpath": "$.assets[?(@.name == 'mVolt+.exe')].digest"
         }
     }
 }
