@@ -6,8 +6,7 @@
     "notes": [
         "Same files as 'mvolt', downloaded from the AmirulAndalib/mvolt-scoop backup mirror instead of the upstream release. Install mvolt or mvolt-mirror, not both.",
         "Tuning needs administrator rights. Profiles and settings live in %LOCALAPPDATA%\\mVolt+ and are kept on update and uninstall.",
-        "Exit mVolt+ from the tray before running 'scoop update'.",
-        "If you use Start with Windows, mVolt+ runs its own copy from %ProgramFiles%\\mVolt+. Open mVolt+ as administrator once after each update to refresh it, and turn the option off before uninstalling."
+        "Exit mVolt+ from the tray before updating."
     ],
     "architecture": {
         "64bit": {
@@ -26,6 +25,37 @@
             "mVolt+.exe",
             "mVolt+"
         ]
+    ],
+    "post_install": [
+        "$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
+        "$root = Join-Path (Join-Path $env:ProgramFiles 'mVolt+') $sid",
+        "$new = Join-Path $dir 'mVolt+.exe'",
+        "$copies = @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName 'mVolt+.exe' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })",
+        "$stale = @($copies | Where-Object { try { [version](Get-Item -LiteralPath $_).VersionInfo.FileVersion -lt [version]$version } catch { $false } })",
+        "if ($stale.Count -gt 0) {",
+        "    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)",
+        "    $newHash = (Get-FileHash -LiteralPath $new -Algorithm SHA256).Hash",
+        "    foreach ($copy in $stale) {",
+        "        $old = (Get-Item -LiteralPath $copy).VersionInfo.FileVersion",
+        "        if (-not $isAdmin) {",
+        "            warn \"Your Start with Windows copy of mVolt+ is still version $old. Open mVolt+ as administrator once to update it to $version, or run the Scoop update from an administrator terminal.\"",
+        "            break",
+        "        }",
+        "        try {",
+        "            Copy-Item -LiteralPath $new -Destination $copy -Force -ErrorAction Stop",
+        "            if ((Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash -ne $newHash) { throw 'hash check failed after copy' }",
+        "            Write-Host \"Updated the Start with Windows copy of mVolt+ from $old to $version.\"",
+        "        } catch {",
+        "            warn \"Could not update the Start with Windows copy of mVolt+ ($old): $($_.Exception.Message). Exit mVolt+ from the tray, then open it as administrator once.\"",
+        "        }",
+        "    }",
+        "}"
+    ],
+    "pre_uninstall": [
+        "$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
+        "if (Test-Path -LiteralPath (Join-Path (Join-Path $env:ProgramFiles 'mVolt+') $sid)) {",
+        "    warn 'mVolt+ Start with Windows is set up for this user. It runs its own copy from %ProgramFiles%\\mVolt+ and keeps starting at logon after this uninstall. Turn Start with Windows off in mVolt+ if you no longer want it.'",
+        "}"
     ],
     "checkver": {
         "github": "https://github.com/AmirulAndalib/mvolt-scoop"

@@ -92,10 +92,16 @@ Your profiles survive updates and reinstalls. Delete `%LOCALAPPDATA%\mVolt+` you
 
 ## Start with Windows
 
-When you turn on **Start with Windows**, mVolt+ installs its own copy of the exe under `%ProgramFiles%\mVolt+` and runs that copy at logon. Scoop does not manage that copy:
+When you turn on **Start with Windows**, mVolt+ copies its exe to `%ProgramFiles%\mVolt+\<your user>\<GPU>\mVolt+.exe` and a logon task runs that copy. Opening mVolt+ as administrator refreshes the copy. That refresh is a plain file copy; the logon task is not changed.
 
-- After updating, open mVolt+ as administrator once. That refreshes the startup copy to the new version.
-- Before `scoop uninstall mvolt`, turn **Start with Windows** off in mVolt+ so it stops launching at logon. If a folder is still left under `%ProgramFiles%\mVolt+` afterwards, you can delete it as administrator.
+The packages keep that copy in step for you:
+
+- **Updating from an administrator terminal:** Scoop replaces an older startup copy with the new exe and checks its hash. Nothing else to do.
+- **Updating from a normal terminal:** Scoop cannot write to Program Files, so it tells you when your startup copy is older. Open mVolt+ as administrator once to refresh it.
+- If mVolt+ is running from the startup copy at that moment, the file is locked. Scoop says so. Exit mVolt+ from the tray, then open it as administrator once.
+- Installing an older version never downgrades the startup copy.
+
+The startup copy is a separate file, so it keeps running at logon after `scoop uninstall mvolt`. Scoop warns about this on uninstall. Turn **Start with Windows** off in mVolt+ first if you no longer want it.
 
 ## Uninstall
 
@@ -114,6 +120,6 @@ scoop bucket rm mvolt
 - `bucket/mvolt.json` and `bucket/mvolt-mirror.json` are the manifests.
 - The [Mirror](.github/workflows/mirror.yml) workflow runs [`scripts/mirror-releases.ps1`](scripts/mirror-releases.ps1) every 4 hours and copies any new upstream release here.
 - The [Excavator](.github/workflows/excavator.yml) workflow runs Scoop's own `checkver` every 4 hours, ten minutes after the mirror. It reads `/releases/latest`, which never returns drafts or prereleases, takes the SHA256 that GitHub records for the release file and commits the update.
-- The [CI](.github/workflows/ci.yml) workflow runs Scoop's manifest tests on Windows PowerShell and PowerShell 7. Once a day it also downloads both packages to confirm the URLs, the hashes and that the files are x64 executables.
+- The [CI](.github/workflows/ci.yml) workflow runs Scoop's manifest tests and [`tests/Manifest-Hooks.Tests.ps1`](tests/Manifest-Hooks.Tests.ps1) (the Start with Windows handling, against a temporary folder) on Windows PowerShell and PowerShell 7. Once a day it also downloads both packages to confirm the URLs, the hashes and that the files are x64 executables.
 
 GPU tuning can cause instability or hardware damage. Read the upstream [guide](https://github.com/b00nz/mVolt/blob/main/docs/guide.md) before changing voltages or limits.
