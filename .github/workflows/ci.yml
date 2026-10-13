@@ -45,6 +45,12 @@ jobs:
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\my_bucket\bin\test.ps1
+      - name: Manifests match scripts/Update-Manifests.ps1
+        run: |
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
+          .\my_bucket\scripts\Update-Manifests.ps1
+          git -C my_bucket diff --exit-code -- bucket
+          if ($LASTEXITCODE -ne 0) { throw 'bucket/*.json differ from scripts/Update-Manifests.ps1. Edit the script and run it, do not edit the hook code in the JSON.' }
 
   verify:
     name: Verify download

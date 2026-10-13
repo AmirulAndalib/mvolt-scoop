@@ -35,10 +35,15 @@ BeforeAll {
         return $copy
     }
 
-    function script:Invoke-Hook([string]$Code, [string]$Version, [switch]$AsAdmin) {
+    function script:Invoke-Hook([string]$Code, [string]$Version, [switch]$AsAdmin, [switch]$NoAdmin, [string]$ManifestHash) {
         if ($AsAdmin) { $Code = $Code -replace '\$isAdmin = .*', '$isAdmin = $true' }
+        # Never raise a real UAC prompt from a test: take the non-interactive branch instead.
+        if ($NoAdmin) { $Code = ($Code -replace '\$isAdmin = .*', '$isAdmin = $false').Replace('-not [Environment]::UserInteractive', '$true') }
         $dir = $newDir
         $version = $Version
+        # Scoop runs hooks inside install_app, where the parsed manifest is in scope as $manifest.
+        $manifest = [pscustomobject]@{ architecture = [pscustomobject]@{ '64bit' = [pscustomobject]@{ hash = $(if ($ManifestHash) { $ManifestHash } else { $newHash.ToLower() }) } } }
+        $null = $manifest
         $null = $dir, $version # used by the hook code
         # Same way Scoop runs hook scripts (lib/install.ps1, Invoke-HookScript).
         $out = Invoke-Command ([scriptblock]::Create($Code)) 6>&1 | Out-String
@@ -61,14 +66,10 @@ Describe 'Start with Windows handling in <_>' -ForEach $apps {
 
     AfterEach { $env:ProgramFiles = $realProgramFiles }
 
-    It 'warns without touching a stale copy when not elevated' {
+    It 'warns without touching a stale copy when it cannot ask for elevation' {
         $copy = New-FakeProgramFiles $oldExe
-        $out = Invoke-Hook $post $version -AsAdmin:$false
-        if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-            Set-ItResult -Skipped -Because 'the test runner is elevated'
-            return
-        }
-        $out | Should -Match 'still version 0\.47\.3'
+        $out = Invoke-Hook $post $version -NoAdmin
+        $out | Should -Match 'out of date'
         (Get-FileHash -LiteralPath $copy).Hash | Should -Not -Be $newHash
     }
 
@@ -77,6 +78,14 @@ Describe 'Start with Windows handling in <_>' -ForEach $apps {
         $out = Invoke-Hook $post $version -AsAdmin
         $out | Should -Match 'from 0\.47\.3 to'
         (Get-FileHash -LiteralPath $copy).Hash | Should -Be $newHash
+    }
+
+    It 'leaves the copy alone when the new exe does not match the manifest hash' {
+        $copy = New-FakeProgramFiles $oldExe
+        $out = Invoke-Hook $post $version -AsAdmin -ManifestHash ('0' * 64)
+        $out | Should -Match 'did not match the expected hash'
+        (Get-FileHash -LiteralPath $copy).Hash | Should -Not -Be $newHash
+        Test-Path -LiteralPath "$copy.new" | Should -BeFalse
     }
 
     It 'warns instead of failing when the copy is in use' {

@@ -7,7 +7,7 @@ This repository holds two Scoop manifests, the workflows that keep them current,
 - `mvolt` downloads the official `mVolt+.exe` from the [upstream releases](https://github.com/b00nz/mVolt/releases).
 - `mvolt-mirror` downloads the same file from [this repository's releases](https://github.com/AmirulAndalib/mvolt-scoop/releases).
 
-Scoop checks every download against the SHA256 hash in the manifest. The mirror only publishes a file after its SHA256 matches the digest GitHub records for the upstream asset, and checks it again after upload.
+Scoop checks every download against the SHA256 hash in the manifest. The only thing the packages do outside Scoop's own folders is keep mVolt+'s Start with Windows copy in `%ProgramFiles%\mVolt+` current: after a UAC prompt, [`scripts/refresh-helper.ps1`](scripts/refresh-helper.ps1) replaces that exe with the hash-checked new one and restarts it through its existing logon task. The mirror only publishes a file after its SHA256 matches the digest GitHub records for the upstream asset, and checks it again after upload.
 
 ## Reporting a Vulnerability
 
