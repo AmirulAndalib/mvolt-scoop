@@ -1,0 +1,19 @@
+# Local tooling folders
+.claude/
+.remember/
+
+# Scoop checkver output and editor leftovers
+checkver-*.html
+page.html
+*.sublime-workspace
+*~
+._*
+
+# Downloads
+*.exe
+*.zip
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'master'
+  pull_request:
+  schedule:
+    # Daily, so a broken upstream URL or a changed asset is caught even when nothing is pushed.
+    - cron: '40 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - name: Checkout Bucket
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Need at least 2 commits to properly gather changed files for linting
+          fetch-depth: 2
+          path: 'my_bucket'
+      - name: Checkout Scoop
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ScoopInstaller/Scoop
+          path: 'scoop_core'
+      - name: Install and cache test dependencies
+        uses: potatoqualitee/psmodulecache@9e4b63833c22c1768d648e115a9c849afdda22a5 # v6.3
+        with:
+          modules-to-cache: BuildHelpers, Pester
+          shell: ${{ matrix.shell }}
+      - name: Run tests
+        run: |
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
+          .\my_bucket\bin\test.ps1
+
+  verify:
+    name: Verify download
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout Bucket
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check URL, hash and binary
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $m = Get-Content bucket/mvolt.json -Raw | ConvertFrom-Json
+          $arch = $m.architecture.'64bit'
+          $expectedUrl = "https://github.com/b00nz/mVolt/releases/download/v$($m.version)/mVolt+.exe"
+          if ($arch.url -cne $expectedUrl) { throw "URL '$($arch.url)' does not match '$expectedUrl'" }
+          $file = Join-Path $env:RUNNER_TEMP 'mVolt+.exe'
+          Invoke-WebRequest -Uri $arch.url -OutFile $file -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 5
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+          if ($hash -cne $arch.hash) { throw "Hash mismatch: manifest $($arch.hash), download $hash" }
+          $bytes = [IO.File]::ReadAllBytes($file)
+          $pe = [BitConverter]::ToInt32($bytes, 0x3c)
+          if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw 'Downloaded file is not an x64 PE image' }
+          $fileVersion = (Get-Item $file).VersionInfo.FileVersion
+          if ($fileVersion -ne $m.version) { Write-Warning "Embedded FileVersion '$fileVersion' differs from manifest version '$($m.version)'" }
+          Write-Host "OK: mvolt $($m.version) $hash"
+      - name: Check latest stable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $m = Get-Content bucket/mvolt.json -Raw | ConvertFrom-Json
+          # /releases/latest never returns drafts or prereleases.
+          $latest = gh api repos/b00nz/mVolt/releases/latest --jq .tag_name
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the latest upstream release' }
+          $latestVersion = $latest -replace '^v', ''
+          if ($latestVersion -ne $m.version) {
+            Write-Warning "Upstream latest is $latestVersion, bucket has $($m.version). Excavator should pick it up on its next run."
+          } else {
+            Write-Host "Bucket is on the latest stable release ($latestVersion)."
+          }

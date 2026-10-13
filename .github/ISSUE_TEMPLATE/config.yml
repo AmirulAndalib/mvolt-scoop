@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-issue-config.json
+blank_issues_enabled: false
+contact_links:
+  - name: mVolt+ issues (upstream)
+    url: https://github.com/b00nz/mVolt/issues
+    about: Bugs, crashes or feature requests in mVolt+ itself go to the upstream project.
+  - name: Scoop questions
+    url: https://github.com/ScoopInstaller/Scoop/discussions
+    about: General Scoop questions that are not about this bucket.
