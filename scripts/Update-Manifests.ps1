@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     Rebuilds bucket/mvolt.json and bucket/mvolt-mirror.json from one definition.
