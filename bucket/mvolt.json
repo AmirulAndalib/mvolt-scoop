@@ -1,0 +1,39 @@
+{
+    "version": "0.3",
+    "description": "NVIDIA GPU tuning and monitoring tool with voltage, clock, power and fan control, V/F curves, live telemetry and saved profiles.",
+    "homepage": "https://github.com/b00nz/mVolt",
+    "license": "Freeware",
+    "notes": [
+        "Tuning needs administrator rights. Profiles and settings live in %LOCALAPPDATA%\\mVolt+ and are kept on update and uninstall.",
+        "Exit mVolt+ from the tray before running 'scoop update mvolt'.",
+        "If you use Start with Windows, mVolt+ runs its own copy from %ProgramFiles%\\mVolt+. Open mVolt+ as administrator once after each update to refresh it, and turn the option off before uninstalling."
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/b00nz/mVolt/releases/download/v0.3/mVolt+.exe",
+            "hash": "e77a47243ed0ac812b6f74e3528f2744b97e4ae6d273c15a5a45bd2f6a983f62"
+        }
+    },
+    "bin": [
+        [
+            "mVolt+.exe",
+            "mvolt"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "mVolt+.exe",
+            "mVolt+"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/b00nz/mVolt"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/b00nz/mVolt/releases/download/v$version/mVolt+.exe"
+            }
+        }
+    }
+}
