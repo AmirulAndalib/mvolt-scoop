@@ -1,6 +1,7 @@
 # Tests the post_install and pre_uninstall scripts in both manifests.
 # %ProgramFiles% is pointed at a temporary folder, so nothing on the machine is touched.
-# Two real mVolt+ builds are downloaded from this repository's mirror (so the tests keep working if\n# upstream goes away): the one in the manifest and v0.47.3,
+# Two real mVolt+ builds are downloaded from this repository's mirror (so the tests keep working if
+# upstream goes away): the one in the manifest and v0.47.3,
 # which plays the stale "Start with Windows" copy.
 
 BeforeDiscovery {
