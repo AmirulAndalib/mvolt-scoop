@@ -34,7 +34,7 @@ The package is called `mvolt` because Scoop app names cannot contain `+`. The in
 
 What you get:
 
-- A Start Menu shortcut named **mVolt+** under Scoop Apps.
+- A Start Menu shortcut under Scoop Apps (**mVolt+**, or **mVolt+ (mirror)** for `mvolt-mirror`).
 - An `mvolt` command for the built-in CLI. mVolt+ is a GUI program, so in PowerShell pipe its output like upstream does, for example `mvolt --status | Out-Host` or `mvolt --list-gpus | Out-Host`. In cmd and Git Bash a plain `mvolt --status` works.
 
 Tuning needs administrator rights. Start mVolt+ as administrator (right-click the shortcut) when you want to apply settings.
@@ -105,7 +105,7 @@ If you decline the prompt, or nobody answers it within 3 minutes, nothing is cha
 
 While mVolt+ is stopped for the swap (a few seconds), a software fan curve is not running and the fan stays at its last speed. The restart brings the curve back. Applied clocks and voltages are not affected.
 
-If you opened mVolt+ from the Scoop shortcut, exit it from the tray before updating. Scoop cannot see an mVolt+ that runs as administrator, so the package checks for it and stops the update with a clear message before anything is removed.
+If you opened mVolt+ from the Scoop shortcut, exit it from the tray before updating. Scoop cannot see an mVolt+ that runs as administrator, so the package checks for it and stops the update or uninstall with a clear message before anything is removed.
 
 The startup copy is a separate file, so it keeps running at logon after `scoop uninstall mvolt`. Scoop warns about this on uninstall. Turn **Start with Windows** off in mVolt+ first if you no longer want it.
 
