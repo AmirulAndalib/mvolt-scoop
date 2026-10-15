@@ -7,8 +7,8 @@ on:
       - 'master'
   pull_request:
   schedule:
-    # Daily, so a broken upstream URL or a changed asset is caught even when nothing is pushed.
-    - cron: '40 3 * * *'
+    # Every 6 hours, so a broken upstream URL, a changed asset or a stalled update is caught even when nothing is pushed.
+    - cron: '52 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -111,10 +111,11 @@ jobs:
             $have = (Get-Content "bucket/$app.json" -Raw | ConvertFrom-Json).version
             if ($have -eq $latestVersion) { Write-Host "${app}: on the latest stable release ($latestVersion)"; continue }
             $msg = "${app} is on $have, upstream latest is $latestVersion (published $([int]$age.TotalHours) hours ago)."
-            if ($age.TotalHours -lt 12) { Write-Host "::notice::$msg Mirror and Excavator should catch up on their next runs." }
+            if ($age.TotalHours -lt 6) { Write-Host "::notice::$msg The hourly Update workflow should catch up soon." }
             else { $behind += $msg }
           }
           if ($behind.Count -gt 0) {
             $behind | ForEach-Object { Write-Host "::error::$_" }
-            throw 'A package has not followed upstream for over 12 hours. Check the Mirror and Excavator runs.'
+            throw 'A package has not followed upstream for over 6 hours. Check the Update workflow runs.'
           }
+

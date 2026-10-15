@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Both manifests share the same hook scripts, so edit them here, not in the JSON.
-    The version, URL and hash are read from the current manifests (Excavator updates
+    The version, URL and hash are read from the current manifests (the Update workflow's Excavator step updates
     those), and refresh-helper.ps1 is embedded into post_install. Output is formatted
     with Scoop's formatjson.ps1. CI fails if the committed manifests differ from the
     output of this script.
