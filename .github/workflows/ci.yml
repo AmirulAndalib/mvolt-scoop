@@ -92,6 +92,40 @@ jobs:
           if ($hashes['mvolt'] -ne $hashes['mvolt-mirror']) {
             Write-Warning "mvolt ($($hashes['mvolt'])) and mvolt-mirror ($($hashes['mvolt-mirror'])) differ. The mirror may still be catching up."
           }
+      - name: Check the WinGet manifests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = 'winget'
+          $installer = Get-Content "$dir/b00nz.mVolt.installer.yaml" -Raw
+          function Get-Field([string]$Name) {
+            if ($installer -cnotmatch "(?m)^\s*${Name}:\s*(\S+)\s*$") { throw "No $Name in the installer manifest" }
+            $Matches[1]
+          }
+          $version = Get-Field 'PackageVersion'
+          $url = Get-Field 'InstallerUrl'
+          $hash = Get-Field 'InstallerSha256'
+          $shipped = (Get-Content winget-version.txt -Raw).Trim()
+          if ($shipped -ne $version) { throw "winget-version.txt says $shipped but $dir holds $version" }
+          if (@(Get-ChildItem $dir).Count -ne 3) { throw "$dir must hold exactly the three b00nz.mVolt manifests" }
+          # Re-render from the recorded values: the files must be exactly what the generator writes.
+          $out = Join-Path $env:RUNNER_TEMP 'winget-render'
+          ./scripts/New-WingetManifest.ps1 -Version $version -Tag "v$version" -InstallerUrl $url -Sha256 $hash -ReleaseDate (Get-Field 'ReleaseDate') -OutDir $out
+          foreach ($f in Get-ChildItem $out) {
+            $have = [IO.File]::ReadAllText((Join-Path $dir $f.Name)) -replace "`r`n", "`n"
+            if ($have -cne [IO.File]::ReadAllText($f.FullName)) { throw "$dir/$($f.Name) differs from scripts/New-WingetManifest.ps1. Re-render it, do not edit it by hand." }
+          }
+          $file = Join-Path $env:RUNNER_TEMP 'winget-mVolt+.exe'
+          Invoke-WebRequest -Uri $url -OutFile $file -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 5
+          $got = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+          if ($got -cne $hash) { throw "WinGet installer hash mismatch: manifest $hash, download $got" }
+          $bytes = [IO.File]::ReadAllBytes($file)
+          if ([BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3c) + 4) -ne 0x8664) { throw 'WinGet installer is not an x64 PE image' }
+          # winget returns a nonzero code when validation passes with warnings, so read the text.
+          $validate = (& winget validate --manifest $out 2>&1 | Out-String)
+          Write-Host $validate.Trim()
+          if ($validate -notmatch 'Manifest validation succeeded') { throw 'winget validate failed' }
+          Write-Host "OK: b00nz.mVolt $version $got"
+          exit 0
       - name: Check both packages follow the latest stable release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

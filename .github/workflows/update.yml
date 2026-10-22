@@ -6,6 +6,11 @@ on:
     # running often keeps both packages close to upstream even when some runs are dropped.
     - cron: '37 * * * *'
   workflow_dispatch:
+    inputs:
+      force_winget:
+        description: Close our open WinGet PR for the latest version and submit it again
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -42,3 +47,104 @@ jobs:
         uses: ScoopInstaller/GithubActions@5bceeda181721d9d10a18fdcc3ddca6f33467ae6 # v3.0.0
         env:
           SKIP_UPDATED: 1
+
+  winget:
+    name: Publish to WinGet
+    # After the manifests job, so the two jobs never push at the same time. Runs even if an
+    # earlier job failed, because WinGet only depends on the upstream release.
+    needs: excavate
+    if: ${{ !cancelled() }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Read latest stable release
+        id: rel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # /releases/latest never returns drafts or prereleases.
+          $raw = gh api repos/b00nz/mVolt/releases/latest | Out-String
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the latest upstream release' }
+          $r = $raw | ConvertFrom-Json
+          $tag = [string]$r.tag_name
+          if ($tag -cnotmatch '\Av[0-9]+(\.[0-9]+){1,3}\z') { throw "Unexpected tag '$tag'" }
+          $asset = @($r.assets | Where-Object { $_.name -ceq 'mVolt+.exe' })
+          if ($asset.Count -ne 1) { throw "$tag has no single mVolt+.exe asset" }
+          $file = Join-Path $env:RUNNER_TEMP 'mVolt+.exe'
+          Invoke-WebRequest -Uri $asset[0].browser_download_url -OutFile $file -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 5
+          $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($asset[0].digest -cne "sha256:$hash") { throw "Hash mismatch: upstream $($asset[0].digest), download sha256:$hash" }
+          $version = $tag.Substring(1)
+          # Take the UTC date from the raw string; ConvertFrom-Json turns it into a DateTime whose
+          # kind depends on the PowerShell version, which can shift the day.
+          if ($raw -cnotmatch '"published_at":\s*"([0-9]{4}-[0-9]{2}-[0-9]{2})T') { throw 'No published_at in the release' }
+          $date = $Matches[1]
+          ./scripts/New-WingetManifest.ps1 -Version $version -Tag $tag -InstallerUrl $asset[0].browser_download_url -Sha256 $hash -ReleaseDate $date -OutDir winget
+          $shipped = if (Test-Path winget-version.txt) { (Get-Content winget-version.txt -Raw).Trim() } else { '' }
+          Add-Content $env:GITHUB_OUTPUT "version=$version"
+          Add-Content $env:GITHUB_OUTPUT "new=$(($shipped -ne $version).ToString().ToLower())"
+          Write-Host "Upstream $version, recorded as shipped: '$shipped'"
+
+      - name: Submit
+        id: submit
+        if: steps.rel.outputs.new == 'true' || inputs.force_winget
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if (-not $env:WINGET_TOKEN) {
+            Write-Host '::warning::WINGET_TOKEN is not set, so nothing was submitted to WinGet.'
+            exit 0
+          }
+          # Keep the fork's master current; wingetcreate branches from upstream either way.
+          $sync = gh api repos/${{ github.repository_owner }}/winget-pkgs/merge-upstream -X POST -f branch=master 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Could not sync the winget-pkgs fork: $($sync.Trim())" }
+          $force = '${{ inputs.force_winget }}' -eq 'true'
+          ./scripts/Publish-Winget.ps1 -Version '${{ steps.rel.outputs.version }}' -ManifestDir winget -Force:$force
+          # The script throws on failure. Its early returns can leave $LASTEXITCODE from an
+          # earlier native call, which would otherwise fail this step.
+          exit 0
+
+      - name: Record shipped version
+        if: steps.submit.outputs.result == 'submitted' || steps.submit.outputs.result == 'merged'
+        run: Set-Content -LiteralPath winget-version.txt -Value '${{ steps.rel.outputs.version }}' -Encoding utf8NoBOM
+
+      - name: Check shipped version is really upstream
+        if: steps.rel.outputs.new != 'true'
+        continue-on-error: true
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          # A recorded version is only trustworthy while it is merged or covered by our open PR.
+          # If a moderator closed our PR, warn instead of resubmitting every hour.
+          if (-not $env:WINGET_TOKEN) { exit 0 }
+          $env:GITHUB_OUTPUT = ''
+          $out = ./scripts/Publish-Winget.ps1 -Version '${{ steps.rel.outputs.version }}' -ManifestDir winget -DryRun 6>&1 | Out-String
+          Write-Host $out.Trim()
+          if ($out -notmatch 'result=(merged|open)') {
+            $msg = 'WinGet ${{ steps.rel.outputs.version }} is recorded as shipped but is neither merged nor in an open PR of ours. Run this workflow with force_winget to resubmit.'
+            Write-Host "::warning::$msg"
+            Add-Content $env:GITHUB_STEP_SUMMARY "- :warning: $msg"
+          }
+          exit 0
+
+      - name: Commit
+        # Only a submitted or merged version is recorded, so nothing else is pushed.
+        if: steps.submit.outputs.result == 'submitted' || steps.submit.outputs.result == 'merged'
+        run: |
+          git add winget winget-version.txt
+          if (-not (git status --porcelain)) { Write-Host 'Nothing to commit'; exit 0 }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "winget: b00nz.mVolt ${{ steps.rel.outputs.version }}"
+          git pull --rebase
+          git push
