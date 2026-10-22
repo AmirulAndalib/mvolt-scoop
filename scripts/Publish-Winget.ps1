@@ -10,8 +10,9 @@
     Then: winget validate (success is read from the text, because warnings return a nonzero
     code), then wingetcreate submit, whose exit code is checked.
 
-    Writes "result=merged|open|submitted" to $env:GITHUB_OUTPUT when set. The caller only
-    records a version as shipped on merged or submitted.
+    Writes "result=merged|open|submitted" to $env:GITHUB_OUTPUT when set. Each of the three
+    means the version is in WinGet's hands, so the caller records it as shipped and never
+    submits it again on its own.
 
 .PARAMETER Version
     Package version.
@@ -111,8 +112,10 @@ if (-not (Test-Path -LiteralPath $wingetcreate)) {
     Invoke-WebRequest -Uri 'https://aka.ms/wingetcreate/latest' -OutFile $wingetcreate -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 5
 }
 # Pass the token through the environment, not --token, so it never appears in a command line.
+# wingetcreate reads WINGET_CREATE_GITHUB_TOKEN before its cache. --no-open stops it opening
+# the new pull request in the default browser.
 $env:WINGET_CREATE_GITHUB_TOKEN = $Token
-try { & $wingetcreate submit $ManifestDir } finally { Remove-Item Env:WINGET_CREATE_GITHUB_TOKEN -ErrorAction SilentlyContinue }
+try { & $wingetcreate submit --no-open $ManifestDir } finally { Remove-Item Env:WINGET_CREATE_GITHUB_TOKEN -ErrorAction SilentlyContinue }
 if ($LASTEXITCODE -ne 0) { throw "wingetcreate submit failed (exit $LASTEXITCODE)" }
 Write-Host "$Id $Version submitted to microsoft/winget-pkgs."
 Set-Result 'submitted'

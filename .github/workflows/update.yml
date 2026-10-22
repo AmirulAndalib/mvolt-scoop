@@ -99,15 +99,12 @@ jobs:
         if: steps.rel.outputs.new == 'true' || inputs.force_winget
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
         run: |
           if (-not $env:WINGET_TOKEN) {
             Write-Host '::warning::WINGET_TOKEN is not set, so nothing was submitted to WinGet.'
             exit 0
           }
-          # Keep the fork's master current; wingetcreate branches from upstream either way.
-          $sync = gh api repos/${{ github.repository_owner }}/winget-pkgs/merge-upstream -X POST -f branch=master 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Could not sync the winget-pkgs fork: $($sync.Trim())" }
+          # wingetcreate syncs the token owner's winget-pkgs fork itself and branches from upstream.
           $force = '${{ inputs.force_winget }}' -eq 'true'
           ./scripts/Publish-Winget.ps1 -Version '${{ steps.rel.outputs.version }}' -ManifestDir winget -Force:$force
           # The script throws on failure. Its early returns can leave $LASTEXITCODE from an
@@ -115,7 +112,9 @@ jobs:
           exit 0
 
       - name: Record shipped version
-        if: steps.submit.outputs.result == 'submitted' || steps.submit.outputs.result == 'merged'
+        # An open PR of ours counts too: if a run submits but fails to push, the next run finds
+        # the PR and records it, so a moderator closing it later cannot trigger a resubmission.
+        if: contains(fromJSON('["submitted","merged","open"]'), steps.submit.outputs.result)
         run: Set-Content -LiteralPath winget-version.txt -Value '${{ steps.rel.outputs.version }}' -Encoding utf8NoBOM
 
       - name: Check shipped version is really upstream
@@ -138,8 +137,8 @@ jobs:
           exit 0
 
       - name: Commit
-        # Only a submitted or merged version is recorded, so nothing else is pushed.
-        if: steps.submit.outputs.result == 'submitted' || steps.submit.outputs.result == 'merged'
+        # Push only when a version was recorded above.
+        if: contains(fromJSON('["submitted","merged","open"]'), steps.submit.outputs.result)
         run: |
           git add winget winget-version.txt
           if (-not (git status --porcelain)) { Write-Host 'Nothing to commit'; exit 0 }
