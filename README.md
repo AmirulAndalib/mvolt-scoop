@@ -3,9 +3,11 @@
 [![CI](https://github.com/AmirulAndalib/mvolt-scoop/actions/workflows/ci.yml/badge.svg)](https://github.com/AmirulAndalib/mvolt-scoop/actions/workflows/ci.yml)
 [![Update](https://github.com/AmirulAndalib/mvolt-scoop/actions/workflows/update.yml/badge.svg)](https://github.com/AmirulAndalib/mvolt-scoop/actions/workflows/update.yml)
 [![Scoop Version](https://img.shields.io/scoop/v/mvolt?bucket=https%3A%2F%2Fgithub.com%2FAmirulAndalib%2Fmvolt-scoop)](https://github.com/AmirulAndalib/mvolt-scoop/blob/master/bucket/mvolt.json)
+[![WinGet Version](https://img.shields.io/winget/v/b00nz.mVolt?label=winget)](https://github.com/microsoft/winget-pkgs/tree/master/manifests/b/b00nz/mVolt)
+[![WinGet Manifest](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FAmirulAndalib%2Fmvolt-scoop%2Fmaster%2Fwinget%2Fb00nz.mVolt.yaml&query=%24.PackageVersion&label=winget%20manifest&prefix=v)](https://github.com/AmirulAndalib/mvolt-scoop/tree/master/winget)
 [![Upstream Release](https://img.shields.io/github/v/release/b00nz/mVolt)](https://github.com/b00nz/mVolt/releases/latest)
 
-Unofficial [Scoop](https://scoop.sh) bucket for [mVolt+](https://github.com/b00nz/mVolt) by [b00nz](https://github.com/b00nz), a Windows tool for NVIDIA GPU tuning and monitoring (voltage, clocks, power, V/F and fan curves, telemetry and profiles).
+Unofficial [Scoop](https://scoop.sh) bucket and [WinGet](#winget) package for [mVolt+](https://github.com/b00nz/mVolt) by [b00nz](https://github.com/b00nz), a Windows tool for NVIDIA GPU tuning and monitoring (voltage, clocks, power, V/F and fan curves, telemetry and profiles).
 
 This bucket is not affiliated with the mVolt+ author. The files are never modified. Every download is checked against a SHA256 hash.
 
@@ -46,7 +48,7 @@ mVolt+ is also submitted to the [WinGet community repository](https://github.com
 winget install b00nz.mVolt
 ```
 
-New WinGet packages are reviewed by WinGet moderators before they become installable, which can take days or weeks. The first versions are [microsoft/winget-pkgs#458430](https://github.com/microsoft/winget-pkgs/pull/458430) (0.50.5) and [#458431](https://github.com/microsoft/winget-pkgs/pull/458431) (0.50.6). Until one of them is merged, `winget install b00nz.mVolt` finds no package.
+New WinGet packages are reviewed by WinGet moderators before they become installable, which can take days or weeks. The first versions are [microsoft/winget-pkgs#458430](https://github.com/microsoft/winget-pkgs/pull/458430) (0.50.5) and [#458431](https://github.com/microsoft/winget-pkgs/pull/458431) (0.50.6). Until one of them is merged, `winget install b00nz.mVolt` finds no package and the **winget** badge above shows "package not found". The **winget manifest** badge shows the latest version submitted from this repository.
 
 How the WinGet package differs from the Scoop one:
 
