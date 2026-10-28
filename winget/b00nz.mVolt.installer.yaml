@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 PackageIdentifier: b00nz.mVolt
-PackageVersion: 0.50.8
+PackageVersion: 0.50.9
 Platform:
 - Windows.Desktop
 MinimumOSVersion: 10.0.0.0
@@ -11,10 +11,10 @@ InstallModes:
 - interactive
 - silent
 - silentWithProgress
-ReleaseDate: 2026-10-27
+ReleaseDate: 2026-10-28
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/b00nz/mVolt/releases/download/v0.50.8/mVolt%2B.exe
-  InstallerSha256: E16D18BA26C1D12FD6CBB99D589CE1AB64338A3AF8544DE94DA3A7AD07C606C9
+  InstallerUrl: https://github.com/b00nz/mVolt/releases/download/v0.50.9/mVolt%2B.exe
+  InstallerSha256: 46C132DD903922E439847C250C38DE6703998A4D1C15C5436D34D068C86EEC44
 ManifestType: installer
 ManifestVersion: 1.12.0
